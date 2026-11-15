@@ -1,0 +1,17 @@
+marche,critere,operateur,note_sur_10
+mobile,accueil,Bouygues Telecom,6.7
+mobile,accueil,Free,7.2
+mobile,accueil,SFR,7.2
+mobile,accueil,Orange,7.6
+mobile,attente_disponibilite,Bouygues Telecom,6.3
+mobile,attente_disponibilite,Free,6.5
+mobile,attente_disponibilite,SFR,7.0
+mobile,attente_disponibilite,Orange,7.3
+mobile,continuite_parcours,Bouygues Telecom,6.3
+mobile,continuite_parcours,Free,6.8
+mobile,continuite_parcours,SFR,6.9
+mobile,continuite_parcours,Orange,7.2
+mobile,pertinence_reponses,Bouygues Telecom,6.1
+mobile,pertinence_reponses,Free,6.5
+mobile,pertinence_reponses,SFR,6.9
+mobile,pertinence_reponses,Orange,7.2

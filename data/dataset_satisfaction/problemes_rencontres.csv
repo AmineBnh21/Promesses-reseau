@@ -1,0 +1,46 @@
+marche,operateur,type_probleme,pct_2025,pct_2024
+mobile,Ensemble,au_moins_un_probleme,43,47
+mobile,Bouygues Telecom,au_moins_un_probleme,44,
+mobile,Free,au_moins_un_probleme,41,49
+mobile,Orange,au_moins_un_probleme,41,
+mobile,SFR,au_moins_un_probleme,50,
+mobile,Ensemble,fraudes_appels_indesirables,26,30
+mobile,Bouygues Telecom,fraudes_appels_indesirables,27,
+mobile,Free,fraudes_appels_indesirables,27,32
+mobile,Orange,fraudes_appels_indesirables,27,
+mobile,SFR,fraudes_appels_indesirables,27,
+mobile,Ensemble,qualite_de_service,17,
+mobile,Bouygues Telecom,qualite_de_service,16,
+mobile,Free,qualite_de_service,18,
+mobile,Orange,qualite_de_service,14,
+mobile,SFR,qualite_de_service,23,
+mobile,Ensemble,surfacturation_contractuel,7,
+mobile,Bouygues Telecom,surfacturation_contractuel,7,
+mobile,Free,surfacturation_contractuel,5,
+mobile,Orange,surfacturation_contractuel,6,
+mobile,SFR,surfacturation_contractuel,9,
+mobile,Ensemble,souscription,4,
+mobile,Bouygues Telecom,souscription,3,
+mobile,Free,souscription,4,
+mobile,Orange,souscription,4,
+mobile,SFR,souscription,5,
+mobile,Ensemble,autres,8,
+mobile,Bouygues Telecom,autres,8,
+mobile,Free,autres,8,
+mobile,Orange,autres,8,
+mobile,SFR,autres,11,
+internet_fixe,Ensemble,au_moins_un_probleme,47,51
+internet_fixe,Bouygues Telecom,au_moins_un_probleme,50,
+internet_fixe,Free,au_moins_un_probleme,46,49
+internet_fixe,Orange,au_moins_un_probleme,44,
+internet_fixe,SFR,au_moins_un_probleme,50,61
+internet_fixe,Ensemble,au_moins_un_probleme_fibre,45,50
+internet_fixe,Bouygues Telecom,au_moins_un_probleme_fibre,49,
+internet_fixe,Free,au_moins_un_probleme_fibre,45,
+internet_fixe,Orange,au_moins_un_probleme_fibre,42,47
+internet_fixe,SFR,au_moins_un_probleme_fibre,49,60
+internet_fixe,Ensemble,au_moins_un_probleme_adsl,51,53
+internet_fixe,Bouygues Telecom,au_moins_un_probleme_adsl,58,
+internet_fixe,Free,au_moins_un_probleme_adsl,51,
+internet_fixe,Orange,au_moins_un_probleme_adsl,52,
+internet_fixe,SFR,au_moins_un_probleme_adsl,48,

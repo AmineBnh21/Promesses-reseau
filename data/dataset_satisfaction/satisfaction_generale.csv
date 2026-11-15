@@ -1,0 +1,59 @@
+marche,operateur,annee,note_sur_10
+mobile,Bouygues Telecom,2021,7.7
+mobile,Bouygues Telecom,2022,7.7
+mobile,Bouygues Telecom,2023,7.7
+mobile,Bouygues Telecom,2024,7.8
+mobile,Bouygues Telecom,2025,7.8
+mobile,Free,2021,7.9
+mobile,Free,2022,8.1
+mobile,Free,2023,8.0
+mobile,Free,2024,8.1
+mobile,Free,2025,8.1
+mobile,Orange,2021,8.0
+mobile,Orange,2022,8.1
+mobile,Orange,2023,8.0
+mobile,Orange,2024,8.0
+mobile,Orange,2025,8.1
+mobile,SFR,2021,7.4
+mobile,SFR,2022,7.3
+mobile,SFR,2023,7.4
+mobile,SFR,2024,7.6
+mobile,SFR,2025,7.9
+mobile,Ensemble,2021,7.7
+mobile,Ensemble,2022,7.8
+mobile,Ensemble,2023,7.8
+mobile,Ensemble,2024,7.9
+mobile,Ensemble,2025,8.0
+internet_fixe,Bouygues Telecom,2021,7.3
+internet_fixe,Bouygues Telecom,2022,7.4
+internet_fixe,Bouygues Telecom,2023,7.3
+internet_fixe,Bouygues Telecom,2024,7.8
+internet_fixe,Bouygues Telecom,2025,7.8
+internet_fixe,Free,2021,7.8
+internet_fixe,Free,2022,7.8
+internet_fixe,Free,2023,7.8
+internet_fixe,Free,2024,8.0
+internet_fixe,Free,2025,7.9
+internet_fixe,Orange,2021,7.8
+internet_fixe,Orange,2022,7.9
+internet_fixe,Orange,2023,7.8
+internet_fixe,Orange,2024,8.0
+internet_fixe,Orange,2025,8.1
+internet_fixe,SFR,2021,6.9
+internet_fixe,SFR,2022,7.0
+internet_fixe,SFR,2023,7.1
+internet_fixe,SFR,2024,7.3
+internet_fixe,SFR,2025,7.6
+internet_fixe,Ensemble,2021,7.5
+internet_fixe,Ensemble,2022,7.6
+internet_fixe,Ensemble,2023,7.6
+internet_fixe,Ensemble,2024,7.8
+internet_fixe,Ensemble,2025,7.9
+consolide,Bouygues Telecom,2025,7.8
+consolide,Free,2025,8.0
+consolide,Orange,2024,8.0
+consolide,Orange,2025,8.1
+consolide,SFR,2024,7.5
+consolide,SFR,2025,7.7
+consolide,Ensemble,2024,7.9
+consolide,Ensemble,2025,7.9
