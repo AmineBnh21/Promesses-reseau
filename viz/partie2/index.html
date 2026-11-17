@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promesse des 24 mois</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="data.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --border: rgba(11,11,11,0.10);
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7;
+    --ok: #2a78d6; --late: #eb6834; --unsure: #b5b4ad; --old: #dcdbd4; --ghost: #ecebe6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+      --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835;
+      --ok: #3987e5; --late: #d95926; --unsure: #6b6a65; --old: #45443f; --ghost: #262624;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835;
+    --ok: #3987e5; --late: #d95926; --unsure: #6b6a65; --old: #45443f; --ghost: #262624;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin: 36px 0 12px; font-weight: 600; }
+  .sub { color: var(--ink-2); margin: 0 0 16px; max-width: 760px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card h3 { font-size: 15px; margin: 0 0 2px; }
+  .card p.note { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
+  .card .src { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+  .tile .v { font-size: 30px; font-weight: 600; }
+  .tile .l { color: var(--ink-2); font-size: 13px; }
+  .filters { position: sticky; top: 0; z-index: 5; background: var(--page); padding: 10px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .filters label { color: var(--ink-2); font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 12px; border: 0; background: transparent; color: var(--ink-2); padding: 5px 10px; cursor: pointer; }
+  .seg button.on { background: var(--grid); color: var(--ink); font-weight: 600; }
+  .player { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .player button { font: inherit; font-size: 13px; border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+                   border-radius: 8px; padding: 5px 12px; cursor: pointer; min-width: 84px; }
+  .player input { flex: 1; min-width: 160px; accent-color: var(--ok); }
+  .player .q { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 64px; }
+  .counter { font-size: 13px; color: var(--ink-2); } .counter b { color: var(--ink); font-size: 18px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .axis path, .axis line { stroke: var(--axis); }
+  .gridl line { stroke: var(--grid); } .gridl path { display: none; }
+  .lbl { fill: var(--ink-2); font-size: 11px; }
+  .lbl-strong { fill: var(--ink); font-size: 11px; font-weight: 600; }
+  #tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
+         border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+         box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transition: opacity .1s; max-width: 280px; z-index: 10; }
+  #tip b { display: block; margin-bottom: 4px; }
+  #tip .row { display: flex; align-items: center; gap: 6px; } #tip .row i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  #tip .row span:last-child { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+  .method { color: var(--ink-2); font-size: 13px; max-width: 820px; }
+  .method li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>La promesse des 24 mois est-elle tenue ?</h1>
+  <p class="sub">Dispositif de couverture ciblée (New Deal mobile, 2018) : chaque site demandé par arrêté doit être mis en service sous 24 mois. On reconstitue la date de mise en service de chaque site à partir des 18 relevés trimestriels de l'Arcep (2022 T1 à 2026 T2).</p>
+
+  <div class="filters">
+    <label>Opérateur leader du site</label>
+    <div class="seg" id="seg-op"></div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Sites livrés depuis 2022 : délai réel</h2>
+  <div class="grid">
+    <div class="card"><h3>Délai entre l'arrêté et la mise en service</h3>
+      <p class="note">Sites mis en service entre 2022 T2 et 2026 T2, par tranche de 3 mois.</p>
+      <div class="legend" id="lg-st"></div><div id="c-hist"></div>
+      <div class="src">La date n'est connue qu'au trimestre près, d'où la catégorie « incertain ».</div></div>
+    <div class="card"><h3>Tenue de la promesse par opérateur leader</h3>
+      <p class="note">Part des sites livrés depuis 2022 T2.</p>
+      <div class="legend" id="lg-op"></div><div id="c-op"></div>
+      <div class="src">Source : Arcep, fichiers DCC trimestriels</div></div>
+  </div>
+
+  <h2>Sites encore en attente</h2>
+  <div class="grid">
+    <div class="card"><h3>Depuis combien de temps attendent-ils ?</h3>
+      <p class="note" id="n-wait"></p>
+      <div class="legend" id="lg-wait"></div><div id="c-wait"></div>
+      <div class="src">Ancienneté de l'arrêté à la fin du dernier trimestre publié.</div></div>
+    <div class="card"><h3>Départements les plus touchés par les retards</h3>
+      <p class="note">Sites livrés en retard + sites toujours en attente au-delà de 24 mois.</p>
+      <div class="legend" id="lg-dep"></div><div id="c-dep"></div>
+      <div class="src">Source : Arcep, DCC</div></div>
+  </div>
+
+  <h2>Le déploiement, trimestre par trimestre</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="player">
+        <button id="play">▶ Lecture</button>
+        <input type="range" id="slider" min="0" step="1">
+        <span class="q" id="qlabel"></span>
+      </div>
+      <div class="counter" id="counter"></div>
+      <div class="legend" id="lg-map" style="margin-top:6px"></div>
+      <div id="c-map"></div>
+      <div class="src">Un point par site en service. Points cerclés : mis en service ce trimestre. Silhouette grise : tous les sites localisés.</div>
+    </div>
+    <div class="card"><h3>Sites demandés et en service</h3>
+      <p class="note">Cliquez sur la courbe pour vous déplacer dans le temps.</p>
+      <div class="legend" id="lg-line"></div><div id="c-line"></div>
+      <div class="src">Source : Arcep, DCC</div>
+    </div>
+  </div>
+
+  <h2>Méthode</h2>
+  <ul class="method">
+    <li>Un site garde le même <code>numero_site</code> d'un relevé à l'autre. Le premier relevé où <code>sites_mes = 1</code> donne le trimestre de mise en service.</li>
+    <li><b>À temps</b> : même à la fin de ce trimestre, on reste sous 24 mois après l'arrêté. <b>En retard</b> : même au début du trimestre, les 24 mois étaient déjà dépassés. <b>Incertain</b> : l'échéance tombe pendant le trimestre.</li>
+    <li>Les 1 284 sites déjà en service en 2022 T1 n'ont pas de date connue : ils sont exclus des délais mais affichés sur la carte.</li>
+    <li>Les 24 mois sont comptés depuis la publication de l'arrêté au Journal officiel ; d'éventuels reports accordés aux opérateurs ne sont pas pris en compte.</li>
+  </ul>
+</main>
+<div id="tip"></div>
+
+<script>
+const D = window.DATA2, Q = D.trimestres, PROMIS = D.delai_promis;
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fr = n => d3.format(",d")(n).replace(/,/g, " ");
+const pct = v => Math.round(v * 100) + " %";
+const OPS = ["Bouygues Telecom", "Orange", "SFR", "Free"];
+const ST = { a_temps: ["À temps", "--ok"], incertain: ["Incertain", "--unsure"], en_retard: ["En retard", "--late"] };
+const LIVRES = ["a_temps", "incertain", "en_retard"];
+const depName = s => s.toLowerCase().replace(/(^|[-\s'])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
+const mid = s => (s.delai_min + s.delai_max) / 2;
+D.sites.forEach(s => s.dname = depName(s.dep || "?"));
+
+// ---------- outils ----------
+const tip = d3.select("#tip");
+function showTip(ev, title, rows) {
+  tip.html(`<b>${title}</b>` + rows.map(r =>
+    `<div class="row">${r.c ? `<i style="background:${css(r.c)}"></i>` : ""}<span>${r.k}</span><span>${r.v}</span></div>`).join(""))
+    .style("opacity", 1);
+  const w = tip.node().offsetWidth, h = tip.node().offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style("left", x + "px").style("top", y + "px");
+}
+const hideTip = () => tip.style("opacity", 0);
+const legend = (id, items) => d3.select(id).html(items.map(([k, c]) => `<span><i style="background:var(${c})"></i>${k}</span>`).join(""));
+function frame(id, W, H, m) {
+  const svg = d3.select(id).html("").append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  return { svg, g: svg.append("g").attr("transform", `translate(${m.l},${m.t})`), w: W - m.l - m.r, h: H - m.t - m.b };
+}
+const yGrid = (g, y, w, f) => g.append("g").attr("class", "axis gridl").call(d3.axisLeft(y).ticks(5).tickSize(-w).tickFormat(f || fr))
+  .call(s => s.select(".domain").remove());
+function promiseLine(g, x, h, label = "promesse : 24 mois") {
+  g.append("line").attr("x1", x).attr("x2", x).attr("y1", -4).attr("y2", h).attr("stroke", "var(--ink)").attr("stroke-dasharray", "4 3");
+  g.append("text").attr("x", x + 6).attr("y", 6).attr("class", "lbl-strong").text(label);
+}
+function siteTip(ev, s) {
+  const rows = [{ k: "Département", v: s.dname }, { k: "Opérateur leader", v: s.op }, { k: "Arrêté", v: s.arrete ? s.arrete.split("-").reverse().join("/") : "?" }];
+  if (s.q != null) rows.push({ k: "Mise en service", v: s.q === 0 ? "avant 2022 T1" : Q[s.q] });
+  if (s.delai_min != null) rows.push({ k: "Délai", v: `${Math.round(s.delai_min)} à ${Math.round(s.delai_max)} mois`, c: ST[s.statut][1] });
+  showTip(ev, s.zone || `Site n° ${s.id}`, rows);
+}
+
+// ---------- état global ----------
+let OP = "Tous", QI = Q.length - 1;
+const sel = () => D.sites.filter(s => OP === "Tous" || s.op === OP);
+// fin de chaque trimestre ("2023 T3" -> "2023-09-30") ; un site est "demandé" dès la publication de son arrêté
+const qEnd = Q.map(l => { const [a, t] = l.split(" T").map(Number); return new Date(Date.UTC(a, 3 * t, 0)).toISOString().slice(0, 10); });
+const demandes = (sites, i) => sites.filter(d => d.arrete && d.arrete <= qEnd[i]).length;
+
+d3.select("#seg-op").selectAll("button").data(["Tous", ...OPS]).join("button").text(d => d)
+  .classed("on", d => d === OP).on("click", (ev, d) => { OP = d; d3.selectAll("#seg-op button").classed("on", b => b === OP); renderAll(); });
+legend("#lg-st", LIVRES.map(k => ST[k]));
+legend("#lg-op", LIVRES.map(k => ST[k]));
+legend("#lg-wait", [["Encore dans le délai", "--ok"], ["Délai dépassé", "--late"]]);
+legend("#lg-dep", [["Livrés en retard", "--late"], ["Toujours en attente, délai dépassé", "--unsure"]]);
+legend("#lg-map", [...LIVRES.map(k => ST[k]), ["En service avant 2022", "--old"]]);
+legend("#lg-line", [["Sites demandés", "--unsure"], ["Sites en service", "--ok"]]);
+
+// ---------- tuiles ----------
+function tiles() {
+  const s = sel(), liv = s.filter(d => LIVRES.includes(d.statut));
+  const n = k => liv.filter(d => d.statut === k).length;
+  const att = s.filter(d => d.statut === "attente_retard");
+  const maxAtt = d3.max(att, d => d.attente_mois);
+  d3.select("#tiles").html([
+    [fr(liv.length), "sites livrés depuis 2022 T2 avec une date connue"],
+    [pct(n("en_retard") / liv.length), `livrés en retard, de façon certaine (${pct(n("a_temps") / liv.length)} à temps, ${pct(n("incertain") / liv.length)} incertains)`],
+    [Math.round(d3.median(liv, mid)) + " mois", "délai médian entre l'arrêté et la mise en service"],
+    [fr(att.length), `sites toujours pas livrés alors que les 24 mois sont dépassés${maxAtt ? ` (jusqu'à ${Math.round(maxAtt)} mois)` : ""}`],
+  ].map(([v, l]) => `<div class="card tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join(""));
+}
+
+// ---------- histogramme empilé des délais ----------
+function stackedHist(id, items, keys, colorOf, valueOf, labelOf) {
+  const m = { t: 16, r: 12, b: 34, l: 40 }, { g, w, h } = frame(id, 560, 280, m);
+  const maxM = Math.ceil(d3.max(D.sites, d => Math.max(d.delai_max || 0, d.attente_mois || 0)) / 6) * 6;
+  const bins = d3.range(0, maxM, 3).map(x0 => {
+    const b = { x0, x1: x0 + 3 }; keys.forEach(k => b[k] = 0); return b;
+  });
+  items.forEach(d => { const b = bins[Math.min(bins.length - 1, Math.floor(valueOf(d) / 3))]; if (b) b[d.statut]++; });
+  const x = d3.scaleLinear([0, maxM], [0, w]);
+  const st = d3.stack().keys(keys)(bins);
+  const y = d3.scaleLinear([0, d3.max(bins, b => d3.sum(keys, k => b[k])) || 1], [h, 0]).nice();
+  yGrid(g, y, w);
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).tickValues(d3.range(0, maxM + 1, 12)).tickSizeOuter(0));
+  g.append("text").attr("x", w).attr("y", h + 30).attr("text-anchor", "end").text("mois après l'arrêté");
+  st.forEach((layer, li) => g.append("g").selectAll("rect").data(layer).join("rect")
+    .attr("x", d => x(d.data.x0) + 1).attr("width", x(3) - x(0) - 2)
+    .attr("y", d => y(d[1]) + (li ? 1 : 0)).attr("height", d => Math.max(0, y(d[0]) - y(d[1]) - (li ? 1 : 0)))
+    .attr("fill", `var(${colorOf(keys[li])})`));
+  promiseLine(g, x(PROMIS), h);
+  g.selectAll(".hit").data(bins).join("rect").attr("x", d => x(d.x0)).attr("width", x(3) - x(0)).attr("height", h).attr("fill", "transparent")
+    .on("mousemove", (ev, b) => showTip(ev, `${b.x0} à ${b.x1} mois`, keys.map(k => ({ k: labelOf(k), c: colorOf(k), v: fr(b[k]) })).filter(r => r.v !== "0")))
+    .on("mouseleave", hideTip);
+}
+function hist() {
+  stackedHist("#c-hist", sel().filter(d => LIVRES.includes(d.statut)), LIVRES, k => ST[k][1], mid, k => ST[k][0]);
+}
+function waiting() {
+  const att = sel().filter(d => d.statut.startsWith("attente"));
+  d3.select("#n-wait").text(`${fr(att.length)} sites demandés pas encore en service au ${Q[Q.length - 1]}.`);
+  const lab = { attente_dans_delai: "Encore dans le délai", attente_retard: "Délai dépassé" };
+  const col = { attente_dans_delai: "--ok", attente_retard: "--late" };
+  stackedHist("#c-wait", att, ["attente_dans_delai", "attente_retard"], k => col[k], d => d.attente_mois, k => lab[k]);
+}
+
+// ---------- 100 % empilé par opérateur ----------
+function byOp() {
+  const rows = OPS.map(op => {
+    const liv = D.sites.filter(d => d.op === op && LIVRES.includes(d.statut));
+    const r = { op, n: liv.length }; LIVRES.forEach(k => r[k] = liv.filter(d => d.statut === k).length / liv.length); return r;
+  });
+  const m = { t: 4, r: 12, b: 24, l: 120 }, { g, w, h } = frame("#c-op", 560, 200, m);
+  const y = d3.scaleBand(OPS, [0, h]).padding(0.35), x = d3.scaleLinear([0, 1], [0, w]);
+  g.append("g").attr("class", "axis gridl").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(5, "%").tickSize(-h)).call(s => s.select(".domain").remove());
+  g.append("g").call(d3.axisLeft(y).tickSize(0).tickPadding(8)).call(s => s.select(".domain").remove())
+    .selectAll("text").attr("class", d => d === OP ? "lbl-strong" : "lbl");
+  const st = d3.stack().keys(LIVRES)(rows);
+  st.forEach((layer, li) => g.append("g").selectAll("rect").data(layer).join("rect")
+    .attr("y", d => y(d.data.op)).attr("height", y.bandwidth())
+    .attr("x", d => x(d[0]) + (li ? 1 : 0)).attr("width", d => Math.max(0, x(d[1]) - x(d[0]) - (li ? 1 : 0)))
+    .attr("fill", `var(${ST[LIVRES[li]][1]})`).attr("opacity", d => OP === "Tous" || d.data.op === OP ? 1 : 0.3));
+  g.selectAll(".v").data(rows).join("text").attr("class", "lbl").attr("fill", "#fff").style("fill", "#fff")
+    .attr("x", d => x(1) - 6).attr("y", d => y(d.op) + y.bandwidth() / 2).attr("dy", "0.35em").attr("text-anchor", "end")
+    .text(d => pct(d.en_retard) + " en retard");
+  g.selectAll(".hit").data(rows).join("rect").attr("x", -m.l).attr("y", d => y(d.op)).attr("width", w + m.l).attr("height", y.bandwidth()).attr("fill", "transparent")
+    .style("cursor", "pointer")
+    .on("mousemove", (ev, d) => showTip(ev, `${d.op} (${fr(d.n)} sites)`, LIVRES.map(k => ({ k: ST[k][0], c: ST[k][1], v: pct(d[k]) }))))
+    .on("mouseleave", hideTip)
+    .on("click", (ev, d) => { OP = OP === d.op ? "Tous" : d.op; d3.selectAll("#seg-op button").classed("on", b => b === OP); renderAll(); });
+}
+
+// ---------- départements ----------
+function deps() {
+  const s = sel();
+  const rows = d3.rollups(s.filter(d => d.statut === "en_retard" || d.statut === "attente_retard"), v => ({
+    livres: v.filter(d => d.statut === "en_retard").length, attente: v.filter(d => d.statut === "attente_retard").length }), d => d.dname)
+    .map(([dep, v]) => ({ dep, ...v, total: v.livres + v.attente })).sort((a, b) => b.total - a.total).slice(0, 12);
+  const m = { t: 4, r: 30, b: 24, l: 130 }, { g, w, h } = frame("#c-dep", 560, 300, m);
+  const y = d3.scaleBand(rows.map(d => d.dep), [0, h]).padding(0.3), x = d3.scaleLinear([0, d3.max(rows, d => d.total) || 1], [0, w]).nice();
+  g.append("g").attr("class", "axis gridl").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(5).tickSize(-h)).call(s => s.select(".domain").remove());
+  g.append("g").call(d3.axisLeft(y).tickSize(0).tickPadding(8)).call(s => s.select(".domain").remove()).selectAll("text").attr("class", "lbl");
+  const r = g.selectAll(".r").data(rows).join("g").attr("transform", d => `translate(0,${y(d.dep)})`);
+  r.append("rect").attr("height", y.bandwidth()).attr("width", d => Math.max(0, x(d.livres) - 1)).attr("fill", "var(--late)");
+  r.append("rect").attr("x", d => x(d.livres) + 1).attr("height", y.bandwidth()).attr("width", d => Math.max(0, x(d.total) - x(d.livres) - 1)).attr("fill", "var(--unsure)").attr("rx", 3);
+  r.append("text").attr("class", "lbl").attr("x", d => x(d.total) + 6).attr("y", y.bandwidth() / 2).attr("dy", "0.35em").text(d => d.total);
+  r.append("rect").attr("x", -m.l).attr("width", w + m.l).attr("height", y.bandwidth()).attr("fill", "transparent")
+    .on("mousemove", (ev, d) => showTip(ev, d.dep, [{ k: "Livrés en retard", c: "--late", v: d.livres }, { k: "En attente, délai dépassé", c: "--unsure", v: d.attente }]))
+    .on("mouseleave", hideTip);
+}
+
+// ---------- carte animée ----------
+const geo = D.sites.filter(d => d.x != null);
+const ext = { x0: d3.min(geo, d => d.x) - 15000, x1: d3.max(geo, d => d.x) + 15000, y0: d3.min(geo, d => d.y) - 15000, y1: d3.max(geo, d => d.y) + 15000 };
+const MW = 520, k = MW / (ext.x1 - ext.x0), MH = Math.round((ext.y1 - ext.y0) * k);
+const px = x => (x - ext.x0) * k, py = y => (ext.y1 - y) * k;
+const mapSvg = d3.select("#c-map").append("svg").attr("viewBox", `0 0 ${MW} ${MH}`);
+mapSvg.append("g").selectAll("circle").data(geo).join("circle").attr("cx", d => px(d.x)).attr("cy", d => py(d.y)).attr("r", 2.2).attr("fill", "var(--ghost)");
+const live = mapSvg.append("g"), rings = mapSvg.append("g");
+const color = d => d.statut === "avant_2022" ? "var(--old)" : `var(${(ST[d.statut] || ST.incertain)[1]})`;
+
+function renderMap(animate) {
+  const vis = geo.filter(d => (OP === "Tous" || d.op === OP) && d.q != null && d.q <= QI);
+  live.selectAll("circle").data(vis, d => d.id).join(
+    en => en.append("circle").attr("cx", d => px(d.x)).attr("cy", d => py(d.y)).attr("fill", color)
+      .attr("r", animate ? 6 : 1.9).call(e => animate && e.transition().duration(600).attr("r", 1.9)),
+    up => up.attr("fill", color),
+    ex => ex.remove());
+  rings.selectAll("circle").data(vis.filter(d => d.q === QI && QI > 0), d => d.id).join("circle")
+    .attr("cx", d => px(d.x)).attr("cy", d => py(d.y)).attr("r", 4).attr("fill", "none").attr("stroke", color).attr("stroke-width", 1.2);
+  const all = sel(), enService = all.filter(d => d.q != null && d.q <= QI).length;
+  const dem = demandes(all, QI);
+  const nouveaux = all.filter(d => d.q === QI && QI > 0).length;
+  d3.select("#counter").html(`<b>${fr(enService)}</b> sites en service sur <b>${fr(dem)}</b> demandés` +
+    (QI > 0 ? ` &middot; <b>${fr(nouveaux)}</b> nouveaux ce trimestre` : ""));
+  d3.select("#qlabel").text(Q[QI]);
+  d3.select("#slider").property("value", QI);
+}
+const qt = d3.quadtree(geo, d => px(d.x), d => py(d.y));
+const hoverRing = mapSvg.append("circle").attr("r", 5).attr("fill", "none").attr("stroke", "var(--ink)").attr("stroke-width", 1.5).style("opacity", 0);
+mapSvg.on("mousemove", ev => {
+  const [mx, my] = d3.pointer(ev);
+  const d = qt.find(mx, my, 10);
+  if (!d || (OP !== "Tous" && d.op !== OP)) { hoverRing.style("opacity", 0); return hideTip(); }
+  hoverRing.attr("cx", px(d.x)).attr("cy", py(d.y)).style("opacity", 1);
+  siteTip(ev, d);
+}).on("mouseleave", () => { hoverRing.style("opacity", 0); hideTip(); });
+
+// ---------- courbe synchronisée ----------
+let cursor;
+function renderLine() {
+  const all = sel();
+  const dem = Q.map((_, i) => demandes(all, i));
+  const srv = Q.map((_, i) => all.filter(d => d.q != null && d.q <= i).length);
+  const m = { t: 10, r: 16, b: 28, l: 48 }, { g, w, h } = frame("#c-line", 560, 300, m);
+  const x = d3.scalePoint(Q, [0, w]), y = d3.scaleLinear([0, d3.max(dem)], [h, 0]).nice();
+  yGrid(g, y, w);
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).tickValues(Q.filter((_, i) => i % 4 === 0)).tickSizeOuter(0));
+  const line = d3.line().x((_, i) => x(Q[i])).y(v => y(v));
+  g.append("path").attr("d", d3.area().x((_, i) => x(Q[i])).y0(v => y(v)).y1((_, i) => y(dem[i]))(srv)).attr("fill", "var(--late)").attr("opacity", 0.12);
+  [[dem, "--unsure"], [srv, "--ok"]].forEach(([v, c]) => g.append("path").attr("d", line(v)).attr("fill", "none").attr("stroke", `var(${c})`).attr("stroke-width", 2));
+  g.append("text").attr("class", "lbl").attr("x", x(Q[Math.floor(Q.length / 2)])).attr("y", y((dem[Math.floor(Q.length / 2)] + srv[Math.floor(Q.length / 2)]) / 2)).attr("text-anchor", "middle").text("écart à combler");
+  cursor = g.append("g");
+  cursor.append("line").attr("y1", 0).attr("y2", h).attr("stroke", "var(--ink)").attr("stroke-dasharray", "3 3");
+  cursor.selectAll("circle").data([[dem, "--unsure"], [srv, "--ok"]]).join("circle").attr("r", 4).attr("fill", d => `var(${d[1]})`).attr("stroke", "var(--surface)").attr("stroke-width", 2);
+  cursor.update = () => { cursor.attr("transform", `translate(${x(Q[QI])},0)`); cursor.selectAll("circle").attr("cy", d => y(d[0][QI])); };
+  cursor.update();
+  const idx = ev => d3.minIndex(Q, q => Math.abs(x(q) - d3.pointer(ev)[0]));
+  g.append("rect").attr("width", w).attr("height", h).attr("fill", "transparent").style("cursor", "pointer")
+    .on("mousemove", ev => { const i = idx(ev); showTip(ev, Q[i], [{ k: "Demandés", c: "--unsure", v: fr(dem[i]) }, { k: "En service", c: "--ok", v: fr(srv[i]) }, { k: "Taux", v: pct(srv[i] / dem[i]) }]); })
+    .on("mouseleave", hideTip)
+    .on("click", ev => { stop(); setQ(idx(ev), false); });
+}
+
+// ---------- lecteur ----------
+let timer = null;
+const slider = d3.select("#slider").attr("max", Q.length - 1);
+function setQ(i, animate) { QI = i; renderMap(animate); if (cursor) cursor.update(); }
+function stop() { if (timer) { timer.stop(); timer = null; } d3.select("#play").text("▶ Lecture"); }
+d3.select("#play").on("click", () => {
+  if (timer) return stop();
+  if (QI >= Q.length - 1) setQ(0, false);
+  d3.select("#play").text("❚❚ Pause");
+  timer = d3.interval(() => { if (QI >= Q.length - 1) return stop(); setQ(QI + 1, true); }, 900);
+});
+slider.on("input", function () { stop(); setQ(+this.value, false); });
+
+function renderAll() { tiles(); hist(); byOp(); waiting(); deps(); renderLine(); renderMap(false); }
+renderAll();
+</script>
+</body>
+</html>
