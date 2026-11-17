@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promesses réseau</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="data.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --border: rgba(11,11,11,0.10);
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+    --neutral: #b5b4ad;
+    --seq-0: #f0efec; --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95; --seq-7: #0d366b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+      --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c;
+      --neutral: #6b6a65;
+      --seq-0: #2c2c2a; --seq-1: #0d366b; --seq-2: #104281; --seq-3: #184f95; --seq-4: #256abf; --seq-5: #3987e5; --seq-6: #6da7ec; --seq-7: #b7d3f6;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c;
+    --neutral: #6b6a65;
+    --seq-0: #2c2c2a; --seq-1: #0d366b; --seq-2: #104281; --seq-3: #184f95; --seq-4: #256abf; --seq-5: #3987e5; --seq-6: #6da7ec; --seq-7: #b7d3f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2);
+       margin: 40px 0 12px; font-weight: 600; }
+  .sub { color: var(--ink-2); margin: 0 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card h3 { font-size: 15px; margin: 0 0 2px; }
+  .card p.note { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
+  .card .src { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
+  .tile .v { font-size: 30px; font-weight: 600; }
+  .tile .l { color: var(--ink-2); font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+  .seg button { font: inherit; font-size: 12px; border: 0; background: transparent; color: var(--ink-2); padding: 4px 10px; cursor: pointer; }
+  .seg button.on { background: var(--grid); color: var(--ink); font-weight: 600; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .axis path, .axis line { stroke: var(--axis); }
+  .gridl line { stroke: var(--grid); } .gridl path { display: none; }
+  .lbl { fill: var(--ink-2); font-size: 11px; }
+  #tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
+         border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px;
+         box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transition: opacity .1s; max-width: 260px; z-index: 10; }
+  #tip b { display: block; margin-bottom: 4px; }
+  #tip .row { display: flex; align-items: center; gap: 6px; } #tip .row i { width: 8px; height: 8px; border-radius: 2px; }
+  #tip .row span:last-child { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Promesses réseau : premier coup d'œil sur les données</h1>
+  <p class="sub">Couverture ciblée (New Deal mobile), satisfaction client et signalements J'alerte l'Arcep.</p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Dispositif de couverture ciblée</h2>
+  <div class="grid">
+    <div class="card"><h3>Sites demandés et mis en service</h3>
+      <p class="note">Cumul par trimestre, France métropolitaine.</p>
+      <div class="legend" id="lg-dcc"></div><div id="c-dcc"></div>
+      <div class="src">Source : Arcep, fichiers DCC 2022 T1 à 2026 T2</div></div>
+    <div class="card"><h3>Départements avec le plus de sites encore à construire</h3>
+      <p class="note" id="n-dep"></p>
+      <div class="legend" id="lg-dep"></div><div id="c-dep"></div>
+      <div class="src">Source : Arcep, DCC</div></div>
+  </div>
+
+  <h2>Cartes</h2>
+  <div class="grid">
+    <div class="card"><h3>Sites DCC en service</h3>
+      <p class="note" id="n-map"></p><div id="c-map"></div>
+      <div class="src">Les sites pas encore déployés n'ont pas de coordonnées publiées.</div></div>
+    <div class="card"><h3>Alertes mobiles pour 10 000 habitants (2025)</h3>
+      <p class="note">Signalements J'alerte l'Arcep, grand public, maille hexagonale.</p>
+      <div class="legend" id="lg-hex"></div><div id="c-hex"></div>
+      <div class="src">Source : J'alerte l'Arcep, bilan annuel 2025</div></div>
+  </div>
+
+  <h2>Satisfaction client</h2>
+  <div class="grid">
+    <div class="card"><h3>Note moyenne de satisfaction (sur 10)</h3>
+      <div class="seg" id="seg-sat"></div>
+      <div class="legend" id="lg-sat"></div><div id="c-sat"></div>
+      <div class="src">Source : Arcep / CSA, observatoire de la satisfaction client 2026</div></div>
+    <div class="card"><h3>Abonnés ayant rencontré un problème en 2025 (%)</h3>
+      <div class="seg" id="seg-pb"></div>
+      <div class="legend" id="lg-pb"></div><div id="c-pb"></div>
+      <div class="src">Source : Arcep / CSA, 12 derniers mois</div></div>
+  </div>
+
+  <h2>Signalements J'alerte l'Arcep</h2>
+  <div class="grid">
+    <div class="card"><h3>Alertes par marché</h3>
+      <div class="legend" id="lg-fm"></div><div id="c-fm"></div>
+      <div class="src">Source : J'alerte l'Arcep, 2022 à 2025</div></div>
+    <div class="card"><h3>Alertes mobiles par thème principal</h3>
+      <div class="legend" id="lg-th"></div><div id="c-th"></div>
+      <div class="src">Source : J'alerte l'Arcep, grand public</div></div>
+  </div>
+</main>
+<div id="tip"></div>
+
+<script>
+const D = window.DATA;
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt = d3.format(",d"); const fr = n => fmt(n).replace(/,/g, " ");
+const OPS = ["Bouygues Telecom", "Orange", "SFR", "Free"];
+const opColor = { "Bouygues Telecom": "--s1", "Orange": "--s2", "SFR": "--s3", "Free": "--s4", "Ensemble": "--neutral" };
+
+// ---------- tooltip ----------
+const tip = d3.select("#tip");
+function showTip(ev, title, rows) {
+  tip.html(`<b>${title}</b>` + rows.map(r =>
+    `<div class="row">${r.c ? `<i style="background:${css(r.c)}"></i>` : ""}<span>${r.k}</span><span>${r.v}</span></div>`).join(""))
+    .style("opacity", 1);
+  const w = tip.node().offsetWidth, h = tip.node().offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style("left", x + "px").style("top", y + "px");
+}
+const hideTip = () => tip.style("opacity", 0);
+
+function legend(id, items) {
+  d3.select(id).html(items.map(([k, c]) => `<span><i style="background:var(${c})"></i>${k}</span>`).join(""));
+}
+function frame(id, W, H, m) {
+  const svg = d3.select(id).html("").append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  return { svg, g: svg.append("g").attr("transform", `translate(${m.l},${m.t})`), w: W - m.l - m.r, h: H - m.t - m.b };
+}
+const yGrid = (g, y, w, f) => g.append("g").attr("class", "axis gridl").call(d3.axisLeft(y).ticks(5).tickSize(-w).tickFormat(f || fr)).call(s => s.select(".domain").remove()).call(s => s.selectAll("line").attr("stroke", css("--grid")));
+
+// ---------- tuiles ----------
+const tl = D.dcc.timeline, last = tl[tl.length - 1];
+const alertes25 = D.jalerte.fixe_mobile.find(d => d.annee === 2025);
+const satMob = D.satisfaction.find(d => d.marche === "mobile" && d.operateur === "Ensemble" && d.annee === 2025);
+d3.select("#tiles").html([
+  [fr(last.demandes), `sites demandés au titre du DCC (${D.dcc.dernier_trimestre})`],
+  [Math.round(100 * last.mis_en_service / last.demandes) + " %", `de ces sites sont en service`],
+  [fr(alertes25.mobile), "alertes mobiles en 2025 (" + fr(alertes25.fixe) + " sur le fixe)"],
+  [satMob ? satMob.note_sur_10.toFixed(1).replace(".", ",") + " / 10" : "-", "satisfaction moyenne mobile en 2025"],
+].map(([v, l]) => `<div class="card tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join(""));
+
+// ---------- line chart générique (crosshair) ----------
+function lineChart(id, xs, series, opt = {}) {
+  const m = { t: 10, r: 16, b: 28, l: 48 }, { svg, g, w, h } = frame(id, 560, 280, m);
+  const x = d3.scalePoint(xs, [0, w]);
+  const vals = series.flatMap(s => s.values.filter(v => v != null));
+  const y = d3.scaleLinear(opt.domain || [0, d3.max(vals)], [h, 0]).nice();
+  yGrid(g, y, w, opt.yfmt);
+  const every = Math.ceil(xs.length / 6);
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`)
+    .call(d3.axisBottom(x).tickValues(xs.filter((_, i) => i % every === 0)).tickSizeOuter(0));
+  const line = d3.line().defined(v => v != null).x((_, i) => x(xs[i])).y(v => y(v));
+  series.forEach(s => {
+    g.append("path").attr("d", line(s.values)).attr("fill", "none").attr("stroke", `var(${s.c})`)
+      .attr("stroke-width", 2).attr("stroke-dasharray", s.dash ? "4 3" : null).attr("stroke-linejoin", "round");
+  });
+  const cross = g.append("line").attr("y1", 0).attr("y2", h).attr("stroke", "var(--axis)").style("opacity", 0);
+  const dots = g.selectAll(".hd").data(series).join("circle").attr("r", 4).attr("fill", d => `var(${d.c})`)
+    .attr("stroke", "var(--surface)").attr("stroke-width", 2).style("opacity", 0);
+  g.append("rect").attr("width", w).attr("height", h).attr("fill", "transparent")
+    .on("mousemove", ev => {
+      const px = d3.pointer(ev)[0];
+      const i = d3.minIndex(xs, d => Math.abs(x(d) - px));
+      cross.attr("x1", x(xs[i])).attr("x2", x(xs[i])).style("opacity", 1);
+      dots.attr("cx", x(xs[i])).attr("cy", d => d.values[i] == null ? -99 : y(d.values[i])).style("opacity", d => d.values[i] == null ? 0 : 1);
+      showTip(ev, xs[i], series.map(s => ({ k: s.name, c: s.c, v: s.values[i] == null ? "-" : (opt.vfmt || fr)(s.values[i]) })));
+    })
+    .on("mouseleave", () => { cross.style("opacity", 0); dots.style("opacity", 0); hideTip(); });
+}
+
+// DCC timeline
+legend("#lg-dcc", [["Sites demandés", "--s1"], ["Sites mis en service", "--s2"]]);
+lineChart("#c-dcc", tl.map(d => d.trimestre), [
+  { name: "Sites demandés", c: "--s1", values: tl.map(d => d.demandes) },
+  { name: "Mis en service", c: "--s2", values: tl.map(d => d.mis_en_service) },
+]);
+
+// ---------- barres horizontales empilées : départements ----------
+(function () {
+  const data = D.dcc.departements.slice(0, 12);
+  d3.select("#n-dep").text(`Sites non encore en service (${D.dcc.dernier_trimestre}), 12 premiers départements.`);
+  legend("#lg-dep", [["En service", "--s1"], ["À venir", "--s2"]]);
+  const m = { t: 4, r: 30, b: 24, l: 120 }, { g, w, h } = frame("#c-dep", 560, 300, m);
+  const y = d3.scaleBand(data.map(d => d.departement), [0, h]).padding(0.3);
+  const x = d3.scaleLinear([0, d3.max(data, d => d.total)], [0, w]).nice();
+  g.append("g").attr("class", "axis gridl").attr("transform", `translate(0,${h})`)
+    .call(d3.axisBottom(x).ticks(5).tickSize(-h)).call(s => s.select(".domain").remove());
+  g.append("g").call(d3.axisLeft(y).tickSize(0).tickPadding(8).tickFormat(d => d.toLowerCase().replace(/(^|[-\s'])(\p{L})/gu, (_, a, b) => a + b.toUpperCase())))
+    .call(s => s.select(".domain").remove()).selectAll("text").attr("class", "lbl");
+  const row = g.selectAll(".r").data(data).join("g").attr("transform", d => `translate(0,${y(d.departement)})`);
+  row.append("rect").attr("height", y.bandwidth()).attr("width", d => Math.max(0, x(d.en_service) - 1)).attr("fill", "var(--s1)").attr("rx", 0);
+  row.append("rect").attr("x", d => x(d.en_service) + 1).attr("height", y.bandwidth())
+    .attr("width", d => Math.max(0, x(d.total) - x(d.en_service) - 1)).attr("fill", "var(--s2)").attr("rx", 3);
+  row.append("text").attr("x", d => x(d.total) + 6).attr("y", y.bandwidth() / 2).attr("dy", "0.35em").attr("class", "lbl").text(d => d.a_venir);
+  row.append("rect").attr("x", -m.l).attr("width", w + m.l).attr("height", y.bandwidth()).attr("fill", "transparent")
+    .on("mousemove", (ev, d) => showTip(ev, d.departement, [
+      { k: "En service", c: "--s1", v: d.en_service }, { k: "À venir", c: "--s2", v: d.a_venir }, { k: "Total", v: d.total }]))
+    .on("mouseleave", hideTip);
+})();
+
+// ---------- cartes (Lambert-93, même emprise pour les deux) ----------
+const hexR = 8660.254;
+// emprise de la France métropolitaine (Corse comprise) en Lambert-93 ; on écarte les cellules hors cadre
+const ext = { x0: 80000, x1: 1260000, y0: 6030000, y1: 7130000 };
+const inMetro = (x, y) => x >= ext.x0 && x <= ext.x1 && y >= ext.y0 && y <= ext.y1;
+D.jalerte.densite_mobile_2025 = D.jalerte.densite_mobile_2025.filter(d => inMetro(d[0], d[1]));
+D.dcc.points = D.dcc.points.filter(d => inMetro(d[0], d[1]));
+const depName = s => s.toLowerCase().replace(/(^|[-\s'])(\p{L})/gu, (_, a, b) => a + b.toUpperCase());
+function mapFrame(id) {
+  const W = 520, k = W / (ext.x1 - ext.x0), H = Math.round((ext.y1 - ext.y0) * k);
+  const svg = d3.select(id).html("").append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  return { svg, k, px: x => (x - ext.x0) * k, py: y => (ext.y1 - y) * k };
+}
+// fond commun : grille hexagonale grisée
+function hexPath(cx, cy, r) {
+  return d3.range(6).map(i => { const a = Math.PI / 3 * i; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; });
+}
+(function () {
+  const { svg, k, px, py } = mapFrame("#c-map");
+  svg.append("g").selectAll("path").data(D.jalerte.densite_mobile_2025).join("path")
+    .attr("d", d => "M" + hexPath(px(d[0]), py(d[1]), hexR * k * 0.98).join("L") + "Z").attr("fill", "var(--seq-0)");
+  const pts = D.dcc.points;
+  d3.select("#n-map").text(`${fr(pts.length)} sites en service au ${D.dcc.dernier_trimestre}, un point par site.`);
+  svg.append("g").selectAll("circle").data(pts).join("circle")
+    .attr("cx", d => px(d[0])).attr("cy", d => py(d[1])).attr("r", 1.6).attr("fill", "var(--s1)").attr("fill-opacity", 0.75);
+  // survol : site le plus proche
+  const qt = d3.quadtree(pts, d => px(d[0]), d => py(d[1]));
+  const ring = svg.append("circle").attr("r", 5).attr("fill", "none").attr("stroke", "var(--ink)").attr("stroke-width", 1.5).style("opacity", 0);
+  svg.on("mousemove", ev => {
+    const [mx, my] = d3.pointer(ev), d = qt.find(mx, my, 10);
+    if (!d) { ring.style("opacity", 0); return hideTip(); }
+    ring.attr("cx", px(d[0])).attr("cy", py(d[1])).style("opacity", 1);
+    const n = pts.filter(p => p[2] === d[2]).length;
+    showTip(ev, depName(d[2]),[{ k: "Sites en service dans le département", v: n }]);
+  }).on("mouseleave", () => { ring.style("opacity", 0); hideTip(); });
+})();
+(function () {
+  const th = [1, 5, 10, 20, 50, 100];
+  const cols = ["--seq-0", "--seq-1", "--seq-2", "--seq-3", "--seq-4", "--seq-5", "--seq-6"];
+  const color = d3.scaleThreshold(th, cols);
+  const lab = ["0", "1-4", "5-9", "10-19", "20-49", "50-99", "100+"];
+  legend("#lg-hex", lab.map((l, i) => [l, cols[i]]));
+  const { svg, k, px, py } = mapFrame("#c-hex");
+  svg.append("g").selectAll("path").data(D.jalerte.densite_mobile_2025).join("path")
+    .attr("d", d => "M" + hexPath(px(d[0]), py(d[1]), hexR * k * 0.94).join("L") + "Z")
+    .attr("fill", d => `var(${color(d[2])})`)
+    .on("mousemove", function (ev, d) {
+      d3.select(this).attr("stroke", "var(--ink)").attr("stroke-width", 1.5).raise();
+      showTip(ev, "Hexagone", [{ k: "Alertes / 10 000 hab.", v: d[2] }, { k: "Population", v: fr(d[3]) }]);
+    })
+    .on("mouseleave", function () { d3.select(this).attr("stroke", null); hideTip(); });
+})();
+
+// ---------- satisfaction ----------
+function segmented(id, opts, onChange) {
+  const s = d3.select(id).html("");
+  opts.forEach(([v, l], i) => s.append("button").text(l).classed("on", i === 0).on("click", function () {
+    s.selectAll("button").classed("on", false); d3.select(this).classed("on", true); onChange(v);
+  }));
+  onChange(opts[0][0]);
+}
+const marches = [["mobile", "Mobile"], ["internet_fixe", "Internet fixe"]];
+legend("#lg-sat", [...OPS, "Ensemble"].map(o => [o === "Ensemble" ? "Ensemble du marché" : o, opColor[o]]));
+segmented("#seg-sat", marches, mk => {
+  const rows = D.satisfaction.filter(d => d.marche === mk);
+  const years = [...new Set(rows.map(d => d.annee))].sort();
+  lineChart("#c-sat", years.map(String), [...OPS, "Ensemble"].map(o => ({
+    name: o, c: opColor[o], dash: o === "Ensemble",
+    values: years.map(a => { const r = rows.find(d => d.operateur === o && d.annee === a); return r ? r.note_sur_10 : null; }),
+  })), { domain: [6, 9], yfmt: d3.format(".1f"), vfmt: v => v.toFixed(1).replace(".", ",") });
+});
+
+// ---------- problèmes rencontrés : barres groupées ----------
+const pbLabels = { au_moins_un_probleme: "Au moins un problème", qualite_de_service: "Qualité de service",
+  fraudes_appels_indesirables: "Fraudes, appels indésirables", surfacturation_contractuel: "Facturation, contrat",
+  souscription: "Souscription", autres: "Autres", au_moins_un_probleme_fibre: "Au moins un (fibre)", au_moins_un_probleme_adsl: "Au moins un (ADSL)" };
+legend("#lg-pb", OPS.map(o => [o, opColor[o]]));
+segmented("#seg-pb", marches, mk => {
+  const rows = D.problemes.filter(d => d.marche === mk && d.operateur !== "Ensemble");
+  const types = [...new Set(rows.map(d => d.type_probleme))];
+  const m = { t: 8, r: 8, b: 56, l: 36 }, { g, w, h } = frame("#c-pb", 560, 300, m);
+  const x0 = d3.scaleBand(types, [0, w]).paddingInner(0.25), x1 = d3.scaleBand(OPS, [0, x0.bandwidth()]).padding(0.08);
+  const y = d3.scaleLinear([0, d3.max(rows, d => d.pct_2025)], [h, 0]).nice();
+  yGrid(g, y, w);
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x0).tickSizeOuter(0).tickFormat(t => pbLabels[t] || t))
+    .selectAll("text").call(wrap, x0.bandwidth() + 8);
+  const grp = g.selectAll(".gp").data(types).join("g").attr("transform", t => `translate(${x0(t)},0)`);
+  grp.selectAll("path").data(t => OPS.map(o => rows.find(d => d.type_probleme === t && d.operateur === o)).filter(Boolean))
+    .join("path").attr("fill", d => `var(${opColor[d.operateur]})`)
+    .attr("d", d => topRounded(x1(d.operateur), y(d.pct_2025), x1.bandwidth(), h - y(d.pct_2025), 3))
+    .on("mousemove", (ev, d) => showTip(ev, pbLabels[d.type_probleme], [
+      { k: d.operateur, c: opColor[d.operateur], v: d.pct_2025 + " %" },
+      ...(d.pct_2024 != null ? [{ k: "en 2024", v: d.pct_2024 + " %" }] : [])]))
+    .on("mouseleave", hideTip);
+});
+function topRounded(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+function wrap(texts, width) {
+  texts.each(function () {
+    const t = d3.select(this), words = t.text().split(/\s+/); let line = [], n = 0;
+    let ts = t.text(null).append("tspan").attr("x", 0).attr("dy", "1em");
+    words.forEach(wd => { line.push(wd); ts.text(line.join(" "));
+      if (ts.node().getComputedTextLength() > width && line.length > 1) { line.pop(); ts.text(line.join(" ")); line = [wd];
+        ts = t.append("tspan").attr("x", 0).attr("dy", "1.1em").text(wd); n++; } });
+  });
+}
+
+// ---------- J'alerte : fixe vs mobile (barres groupées) ----------
+(function () {
+  const data = D.jalerte.fixe_mobile, keys = [["fixe", "Fixe / Internet", "--s1"], ["mobile", "Mobile", "--s2"]];
+  legend("#lg-fm", keys.map(k => [k[1], k[2]]));
+  const m = { t: 8, r: 8, b: 24, l: 48 }, { g, w, h } = frame("#c-fm", 560, 280, m);
+  const x0 = d3.scaleBand(data.map(d => d.annee), [0, w]).paddingInner(0.3), x1 = d3.scaleBand(keys.map(k => k[0]), [0, x0.bandwidth()]).padding(0.06);
+  const y = d3.scaleLinear([0, d3.max(data, d => Math.max(d.fixe, d.mobile))], [h, 0]).nice();
+  yGrid(g, y, w);
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x0).tickSizeOuter(0));
+  const grp = g.selectAll(".gp").data(data).join("g").attr("transform", d => `translate(${x0(d.annee)},0)`);
+  grp.selectAll("path").data(d => keys.map(k => ({ d, k }))).join("path").attr("fill", e => `var(${e.k[2]})`)
+    .attr("d", e => topRounded(x1(e.k[0]), y(e.d[e.k[0]]), x1.bandwidth(), h - y(e.d[e.k[0]]), 4));
+  grp.append("rect").attr("width", x0.bandwidth()).attr("height", h).attr("fill", "transparent")
+    .on("mousemove", (ev, d) => showTip(ev, d.annee, keys.map(k => ({ k: k[1], c: k[2], v: fr(d[k[0]]) }))))
+    .on("mouseleave", hideTip);
+})();
+
+// ---------- J'alerte : thèmes mobiles (barres empilées) ----------
+(function () {
+  const data = D.jalerte.themes_mobile;
+  const keys = Object.keys(data[0]).filter(k => k !== "annee");
+  const cols = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
+  legend("#lg-th", keys.map((k, i) => [k, cols[i]]));
+  const m = { t: 8, r: 8, b: 24, l: 48 }, { g, w, h } = frame("#c-th", 560, 280, m);
+  const st = d3.stack().keys(keys)(data);
+  const x = d3.scaleBand(data.map(d => d.annee), [0, w]).padding(0.4);
+  const y = d3.scaleLinear([0, d3.max(st[st.length - 1], d => d[1])], [h, 0]).nice();
+  yGrid(g, y, w);
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).tickSizeOuter(0));
+  st.forEach((layer, li) => {
+    g.append("g").selectAll("rect").data(layer).join("rect")
+      .attr("x", d => x(d.data.annee)).attr("width", x.bandwidth())
+      .attr("y", d => y(d[1]) + (li === st.length - 1 ? 0 : 1)).attr("height", d => Math.max(0, y(d[0]) - y(d[1]) - 2))
+      .attr("rx", li === st.length - 1 ? 3 : 0).attr("fill", `var(${cols[li]})`);
+  });
+  g.selectAll(".tot").data(data).join("text").attr("class", "lbl").attr("text-anchor", "middle")
+    .attr("x", d => x(d.annee) + x.bandwidth() / 2).attr("y", d => y(d3.sum(keys, k => d[k])) - 6).text(d => fr(d3.sum(keys, k => d[k])));
+  g.selectAll(".hit").data(data).join("rect").attr("x", d => x(d.annee) - 8).attr("width", x.bandwidth() + 16).attr("height", h).attr("fill", "transparent")
+    .on("mousemove", (ev, d) => showTip(ev, d.annee, keys.map((k, i) => ({ k, c: cols[i], v: fr(d[k]) })).reverse()))
+    .on("mouseleave", hideTip);
+})();
+</script>
+</body>
+</html>
