@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promesses par département</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="data.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --border: rgba(11,11,11,0.10);
+    --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --nodata: #ecebe6; --dep-stroke: #fcfcfb;
+    --ok: #2a78d6; --late: #eb6834; --unsure: #b5b4ad; --old: #c9c8c1;
+    --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #5598e7; --seq-4: #256abf; --seq-5: #104281;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+      --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --nodata: #262624; --dep-stroke: #1a1a19;
+      --ok: #3987e5; --late: #d95926; --unsure: #6b6a65; --old: #4a4944;
+      --seq-1: #0d366b; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #5598e7; --seq-5: #9ec5f4;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --border: rgba(255,255,255,0.10);
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --nodata: #262624; --dep-stroke: #1a1a19;
+    --ok: #3987e5; --late: #d95926; --unsure: #6b6a65; --old: #4a4944;
+    --seq-1: #0d366b; --seq-2: #184f95; --seq-3: #256abf; --seq-4: #5598e7; --seq-5: #9ec5f4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-2); margin: 32px 0 12px; font-weight: 600; }
+  .sub { color: var(--ink-2); margin: 0 0 12px; max-width: 780px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card h3 { font-size: 15px; margin: 0 0 2px; }
+  .card p.note { margin: 0 0 10px; color: var(--ink-2); font-size: 13px; }
+  .card .src { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
+  .tile .v { font-size: 28px; font-weight: 600; }
+  .tile .l { color: var(--ink-2); font-size: 13px; }
+  .tile .cmp { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .filters { position: sticky; top: 0; z-index: 5; background: var(--page); padding: 10px 0; display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .filters label { color: var(--ink-2); font-size: 13px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 12px; border: 0; background: transparent; color: var(--ink-2); padding: 5px 10px; cursor: pointer; }
+  .seg button.on { background: var(--grid); color: var(--ink); font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 13px; font-weight: 600; }
+  .chip button { font: inherit; border: 0; background: var(--grid); color: var(--ink); border-radius: 999px; padding: 2px 9px; cursor: pointer; font-size: 12px; font-weight: 400; }
+  .chip.off { font-weight: 400; color: var(--ink-2); padding-right: 12px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .axis path, .axis line { stroke: var(--axis); }
+  .gridl line { stroke: var(--grid); } .gridl path { display: none; }
+  .lbl { fill: var(--ink-2); font-size: 11px; }
+  .lbl-strong { fill: var(--ink); font-size: 11px; font-weight: 600; }
+  .dep { stroke: var(--dep-stroke); stroke-width: 0.8; vector-effect: non-scaling-stroke; cursor: pointer; transition: opacity .3s; }
+  .dep.hover { stroke: var(--ink); stroke-width: 1.5; }
+  .dep.sel { stroke: var(--ink); stroke-width: 2; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; border-bottom: 1px solid var(--axis); padding: 6px 8px; position: sticky; top: 0; background: var(--surface); }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--grid); color: var(--ink-2); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td:first-child { color: var(--ink); }
+  .tablewrap { max-height: 330px; overflow: auto; }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+  #tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); opacity: 0; transition: opacity .1s; max-width: 290px; z-index: 10; }
+  #tip b { display: block; margin-bottom: 4px; }
+  #tip .row { display: flex; align-items: center; gap: 6px; } #tip .row i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  #tip .row span:last-child { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; }
+  #tip .hint { color: var(--muted); margin-top: 4px; }
+  .method { color: var(--ink-2); font-size: 13px; max-width: 820px; } .method li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Les promesses, département par département</h1>
+  <p class="sub">Vue d'ensemble d'abord, puis zoom et filtre, puis détail à la demande. Cliquez sur un département, sur la carte ou dans le nuage de points : toute la page se recalcule pour lui.</p>
+
+  <div class="filters">
+    <label>Opérateur leader</label><div class="seg" id="seg-op"></div>
+    <span id="chip"></span>
+  </div>
+
+  <h2 id="h-tiles"></h2>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Vue d'ensemble</h2>
+  <div class="grid">
+    <div class="card"><h3>Carte des départements</h3>
+      <div class="seg" id="seg-metric" style="margin:6px 0 8px"></div>
+      <div class="legend" id="lg-map"></div>
+      <div id="c-map"></div>
+      <div class="src" id="src-map"></div></div>
+    <div class="card"><h3>Les sites vont-ils là où l'on se plaint ?</h3>
+      <p class="note">Chaque point est un département. Alertes mobiles J'alerte l'Arcep (2025) et sites demandés au titre du DCC, rapportés à la population.</p>
+      <div id="c-scatter"></div>
+      <div class="src">Sources : Arcep (DCC, J'alerte), population geo.api.gouv.fr</div></div>
+  </div>
+
+  <h2 id="h-detail">Détail</h2>
+  <div class="grid">
+    <div class="card"><h3>Délai entre l'arrêté et la mise en service</h3>
+      <p class="note" id="n-hist"></p>
+      <div class="legend" id="lg-hist"></div><div id="c-hist"></div>
+      <div class="src">Sites mis en service entre 2022 T2 et 2026 T2. Date connue au trimestre près.</div></div>
+    <div class="card"><h3>Sites toujours pas livrés, délai dépassé</h3>
+      <p class="note" id="n-table"></p>
+      <div class="tablewrap" id="c-table"></div>
+      <div class="src">Ancienneté de l'arrêté à la fin du dernier relevé (2026 T2).</div></div>
+  </div>
+
+  <h2>Méthode</h2>
+  <ul class="method">
+    <li>Délais : même méthode que la partie 2 (premier relevé trimestriel où le site est en service, comparé à la date de l'arrêté + 24 mois).</li>
+    <li>Les sites sont rattachés au département qui contient leur position ; ceux sans coordonnées (non encore livrés) au premier code INSEE cité dans le fichier.</li>
+    <li>Alertes : nombre d'alertes mobiles 2025 par hexagone, attribuées au département qui contient le centre de l'hexagone (5 903 alertes rattachées sur les 6 389 localisées).</li>
+    <li>Le taux de retard n'est affiché que pour les départements avec au moins 10 sites livrés depuis 2022 T2.</li>
+  </ul>
+</main>
+<div id="tip"></div>
+
+<script>
+const D = window.DATA3, Q = D.trimestres, PROMIS = D.delai_promis;
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fr = n => d3.format(",d")(Math.round(n)).replace(/,/g, " ");
+const dec = (n, p = 1) => n.toFixed(p).replace(".", ",");
+const pct = v => Math.round(v * 100) + " %";
+const OPS = ["Bouygues Telecom", "Orange", "SFR", "Free"];
+const ST = { a_temps: ["À temps", "--ok"], incertain: ["Incertain", "--unsure"], en_retard: ["En retard", "--late"] };
+const LIVRES = ["a_temps", "incertain", "en_retard"];
+const NOM = Object.fromEntries(D.geo.features.map(f => [f.properties.code, f.properties.nom]));
+const mid = s => (s.delai_min + s.delai_max) / 2;
+const MIN_LIVRES = 10;
+
+// ---------- état ----------
+let OP = "Tous", SEL = null, METRIC = "retard", HOVER = null;
+const sitesOp = () => D.sites.filter(s => OP === "Tous" || s.op === OP);
+
+function stats(sites) {
+  const liv = sites.filter(s => LIVRES.includes(s.statut));
+  const c = k => sites.filter(s => s.statut === k).length;
+  return {
+    demandes: sites.length,
+    en_service: sites.filter(s => s.q != null).length,
+    livres: liv.length, en_retard: c("en_retard"), a_temps: c("a_temps"),
+    attente_retard: c("attente_retard"),
+    taux_retard: liv.length ? c("en_retard") / liv.length : null,
+    median: liv.length ? d3.median(liv, mid) : null,
+  };
+}
+function depTable() {
+  const by = d3.group(sitesOp(), s => s.dep);
+  return D.geo.features.map(f => {
+    const code = f.properties.code, st = stats(by.get(code) || []), p = D.deps[code] || { pop: 0, alertes: 0 };
+    return { code, nom: NOM[code], ...st, pop: p.pop, alertes: p.alertes,
+      alertes_10k: p.pop ? p.alertes / p.pop * 1e4 : null,
+      sites_100k: p.pop ? st.demandes / p.pop * 1e5 : null,
+      retard: st.livres >= MIN_LIVRES ? st.taux_retard : null };
+  });
+}
+
+const METRICS = {
+  retard: { label: "Taux de retard", fmt: pct, src: `Part des sites livrés depuis 2022 T2 avec plus de 24 mois de délai (au moins ${MIN_LIVRES} sites livrés).` },
+  attente_retard: { label: "Non livrés hors délai", fmt: fr, src: "Sites pas encore en service alors que les 24 mois sont dépassés." },
+  alertes_10k: { label: "Alertes mobiles / 10 000 hab.", fmt: v => dec(v), src: "Alertes J'alerte l'Arcep 2025, marché mobile grand public." },
+  sites_100k: { label: "Sites DCC / 100 000 hab.", fmt: v => dec(v), src: "Sites demandés par arrêté au titre du DCC, toutes années." },
+};
+
+// ---------- outils ----------
+const tip = d3.select("#tip");
+function showTip(ev, title, rows, hint) {
+  tip.html(`<b>${title}</b>` + rows.map(r => `<div class="row">${r.c ? `<i style="background:${css(r.c)}"></i>` : ""}<span>${r.k}</span><span>${r.v}</span></div>`).join("") + (hint ? `<div class="hint">${hint}</div>` : "")).style("opacity", 1);
+  const w = tip.node().offsetWidth, h = tip.node().offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style("left", x + "px").style("top", y + "px");
+}
+const hideTip = () => tip.style("opacity", 0);
+const legend = (id, items) => d3.select(id).html(items.map(([k, c]) => `<span><i style="background:var(${c})"></i>${k}</span>`).join(""));
+function frame(id, W, H, m) {
+  const svg = d3.select(id).html("").append("svg").attr("viewBox", `0 0 ${W} ${H}`);
+  return { svg, g: svg.append("g").attr("transform", `translate(${m.l},${m.t})`), w: W - m.l - m.r, h: H - m.t - m.b };
+}
+function depTip(ev, d) {
+  showTip(ev, `${d.nom} (${d.code})`, [
+    { k: "Sites demandés", v: fr(d.demandes) },
+    { k: "Taux de retard", v: d.retard == null ? "trop peu de sites" : pct(d.retard) },
+    { k: "Non livrés hors délai", v: fr(d.attente_retard) },
+    { k: "Alertes mobiles / 10 000 hab.", v: d.alertes_10k == null ? "-" : dec(d.alertes_10k) },
+    { k: "Sites DCC / 100 000 hab.", v: d.sites_100k == null ? "-" : dec(d.sites_100k) },
+  ], SEL === d.code ? "Cliquer pour revenir à la France" : "Cliquer pour zoomer");
+}
+const select = code => { SEL = SEL === code ? null : code; renderAll(); };
+const setHover = code => { HOVER = code; d3.selectAll(".dep").classed("hover", f => f.properties.code === HOVER); scatterHover(); };
+
+// ---------- contrôles ----------
+d3.select("#seg-op").selectAll("button").data(["Tous", ...OPS]).join("button").text(d => d)
+  .classed("on", d => d === OP).on("click", (ev, d) => { OP = d; d3.selectAll("#seg-op button").classed("on", b => b === OP); renderAll(); });
+d3.select("#seg-metric").selectAll("button").data(Object.keys(METRICS)).join("button").text(k => METRICS[k].label)
+  .classed("on", k => k === METRIC).on("click", (ev, k) => { METRIC = k; d3.selectAll("#seg-metric button").classed("on", b => b === METRIC); renderMap(); });
+legend("#lg-hist", LIVRES.map(k => ST[k]));
+
+// ---------- tuiles ----------
+function tiles() {
+  const all = sitesOp(), cur = SEL ? all.filter(s => s.dep === SEL) : all;
+  const s = stats(cur), fr_ = stats(all);
+  const pop = SEL ? (D.deps[SEL] || {}).pop : d3.sum(Object.values(D.deps), d => d.pop);
+  const al = SEL ? (D.deps[SEL] || {}).alertes : d3.sum(Object.values(D.deps), d => d.alertes);
+  const frAl = d3.sum(Object.values(D.deps), d => d.alertes) / d3.sum(Object.values(D.deps), d => d.pop) * 1e4;
+  d3.select("#h-tiles").text(SEL ? `${NOM[SEL]} (${SEL})` : "France métropolitaine");
+  const cmp = (txt) => SEL ? `<div class="cmp">France : ${txt}</div>` : "";
+  d3.select("#tiles").html([
+    [fr(s.demandes), "sites demandés", cmp(fr(fr_.demandes))],
+    [s.demandes ? pct(s.en_service / s.demandes) : "-", "en service au 2026 T2", cmp(pct(fr_.en_service / fr_.demandes))],
+    [s.livres ? pct(s.taux_retard) : "-", `des ${fr(s.livres)} sites livrés depuis 2022 T2 l'ont été en retard`, cmp(pct(fr_.taux_retard))],
+    [fr(s.attente_retard), "sites non livrés, délai de 24 mois dépassé", cmp(fr(fr_.attente_retard))],
+    [pop ? dec(al / pop * 1e4) : "-", "alertes mobiles pour 10 000 hab. (2025)", cmp(dec(frAl))],
+  ].map(([v, l, c]) => `<div class="card tile"><div class="v">${v}</div><div class="l">${l}</div>${c}</div>`).join(""));
+  d3.select("#chip").html(SEL ? `<span class="chip">${NOM[SEL]}<button id="reset">✕ France entière</button></span>` : `<span class="chip off">Cliquez sur un département</span>`);
+  d3.select("#reset").on("click", () => select(null));
+}
+
+// ---------- carte ----------
+const MW = 560, MH = 560;
+const proj = d3.geoConicConformal().parallels([44, 49]).rotate([-3, 0]).fitExtent([[8, 8], [MW - 8, MH - 8]], D.geo);
+const path = d3.geoPath(proj);
+const mapSvg = d3.select("#c-map").append("svg").attr("viewBox", `0 0 ${MW} ${MH}`).style("overflow", "hidden");
+mapSvg.append("rect").attr("width", MW).attr("height", MH).attr("fill", "transparent").on("click", () => SEL && select(null));
+const mapG = mapSvg.append("g");
+const depsG = mapG.append("g"), ptsG = mapG.append("g");
+let zoomK = 1;
+
+function renderMap() {
+  const rows = depTable(), byCode = Object.fromEntries(rows.map(r => [r.code, r]));
+  const M = METRICS[METRIC], vals = rows.map(r => r[METRIC]).filter(v => v != null);
+  const cols = ["--seq-1", "--seq-2", "--seq-3", "--seq-4", "--seq-5"];
+  const color = d3.scaleQuantile(vals, cols);
+  const q = color.quantiles(), ext = d3.extent(vals);
+  const bounds = [ext[0], ...q, ext[1]];
+  legend("#lg-map", [...cols.map((c, i) => [`${M.fmt(bounds[i])} à ${M.fmt(bounds[i + 1])}`, c]),
+    ...(rows.some(r => r[METRIC] == null) ? [["pas de donnée", "--nodata"]] : [])]);
+  d3.select("#src-map").text(M.src);
+
+  depsG.selectAll("path").data(D.geo.features, f => f.properties.code).join("path")
+    .attr("class", "dep").attr("d", path)
+    .classed("sel", f => f.properties.code === SEL)
+    // le département sélectionné passe en neutre pour que les sites (colorés par statut) ressortent
+    .attr("fill", f => { if (f.properties.code === SEL) return "var(--nodata)"; const v = byCode[f.properties.code][METRIC]; return v == null ? "var(--nodata)" : `var(${color(v)})`; })
+    .style("opacity", f => !SEL || f.properties.code === SEL ? 1 : 0.35)
+    .on("mousemove", (ev, f) => { setHover(f.properties.code); depTip(ev, byCode[f.properties.code]); })
+    .on("mouseleave", () => { setHover(null); hideTip(); })
+    .on("click", (ev, f) => { ev.stopPropagation(); select(f.properties.code); });
+  depsG.selectAll("path.sel").raise();
+
+  // zoom sur la sélection
+  let t = d3.zoomIdentity;
+  if (SEL) {
+    const f = D.geo.features.find(f => f.properties.code === SEL);
+    const [[x0, y0], [x1, y1]] = path.bounds(f);
+    const k = Math.min(10, 0.85 / Math.max((x1 - x0) / MW, (y1 - y0) / MH));
+    t = d3.zoomIdentity.translate(MW / 2, MH / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+  }
+  zoomK = t.k;
+  mapG.transition().duration(750).attr("transform", t.toString());
+
+  // sites du département sélectionné (détail à la demande)
+  const pts = SEL ? sitesOp().filter(s => s.dep === SEL && s.lon != null) : [];
+  const fill = s => s.statut === "avant_2022" ? "var(--old)" : `var(${(ST[s.statut] || ST.incertain)[1]})`;
+  ptsG.selectAll("circle").data(pts, s => s.id).join(
+    en => en.append("circle").style("opacity", 0).call(e => e.transition().duration(900).style("opacity", 1)),
+    up => up,
+    ex => ex.remove())
+    .attr("r", 6 / zoomK).attr("cx", s => proj([s.lon, s.lat])[0]).attr("cy", s => proj([s.lon, s.lat])[1])
+    .attr("fill", fill).attr("stroke", "var(--surface)").attr("stroke-width", 1).attr("vector-effect", "non-scaling-stroke")
+    .on("mousemove", (ev, s) => {
+      const rows = [{ k: "Opérateur leader", v: s.op }, { k: "Arrêté", v: s.arrete ? s.arrete.split("-").reverse().join("/") : "?" },
+        { k: "Mise en service", v: s.q === 0 ? "avant 2022 T1" : Q[s.q] }];
+      if (s.delai_min != null) rows.push({ k: "Délai", c: ST[s.statut][1], v: `${Math.round(s.delai_min)} à ${Math.round(s.delai_max)} mois` });
+      showTip(ev, s.zone || `Site n° ${s.id}`, rows);
+    }).on("mouseleave", hideTip);
+  if (SEL) legend("#lg-map", [...LIVRES.map(k => ST[k]), ["En service avant 2022", "--old"]]);
+  if (SEL) d3.select("#src-map").text("Un point par site en service. Les sites non livrés n'ont pas de coordonnées publiées : voir le tableau plus bas.");
+}
+
+// ---------- nuage de points ----------
+let scatterDots, scatterHover = () => {};
+function renderScatter() {
+  const rows = depTable().filter(r => r.alertes_10k != null && r.pop > 0);
+  const m = { t: 12, r: 16, b: 40, l: 46 }, { g, w, h } = frame("#c-scatter", 560, 470, m);
+  const x = d3.scaleLinear([0, d3.max(rows, r => r.alertes_10k)], [0, w]).nice();
+  const y = d3.scaleLinear([0, d3.max(rows, r => r.sites_100k)], [h, 0]).nice();
+  g.append("g").attr("class", "axis gridl").call(d3.axisLeft(y).ticks(6).tickSize(-w)).call(s => s.select(".domain").remove());
+  g.append("g").attr("class", "axis gridl").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).ticks(6).tickSize(-h).tickFormat(v => dec(v))).call(s => s.select(".domain").remove());
+  g.append("text").attr("x", w).attr("y", h + 32).attr("text-anchor", "end").text("alertes mobiles pour 10 000 hab. (2025) →");
+  g.append("text").attr("x", 4).attr("y", -2).text("↑ sites DCC demandés pour 100 000 hab.");
+  // moyennes nationales en repère
+  const mx = d3.sum(rows, r => r.alertes) / d3.sum(rows, r => r.pop) * 1e4, my = d3.sum(rows, r => r.demandes) / d3.sum(rows, r => r.pop) * 1e5;
+  g.append("line").attr("x1", x(mx)).attr("x2", x(mx)).attr("y2", h).attr("stroke", "var(--axis)").attr("stroke-dasharray", "4 3");
+  g.append("line").attr("y1", y(my)).attr("y2", y(my)).attr("x2", w).attr("stroke", "var(--axis)").attr("stroke-dasharray", "4 3");
+  g.append("text").attr("x", x(mx) + 4).attr("y", 14).text("moyenne France");
+  // coin "beaucoup d'alertes, peu de sites"
+  g.append("text").attr("class", "lbl").attr("x", w - 4).attr("y", h - 10).attr("text-anchor", "end").text("beaucoup d'alertes, peu de sites");
+
+  scatterDots = g.append("g").selectAll("circle").data(rows, r => r.code).join("circle")
+    .attr("cx", r => x(r.alertes_10k)).attr("cy", r => y(r.sites_100k)).attr("r", r => r.code === SEL ? 7 : 5)
+    .attr("fill", r => r.code === SEL ? "var(--late)" : "var(--ok)").attr("fill-opacity", r => !SEL || r.code === SEL ? 0.85 : 0.35)
+    .attr("stroke", "var(--surface)").attr("stroke-width", 1.5).style("cursor", "pointer");
+  if (SEL) scatterDots.filter(r => r.code === SEL).raise();
+  // étiquettes : sélection + quelques extrêmes
+  const lab = new Set([SEL, ...d3.sort(rows, r => -r.sites_100k).slice(0, 4).map(r => r.code), ...d3.sort(rows, r => -r.alertes_10k).slice(0, 3).map(r => r.code)]);
+  g.append("g").selectAll("text").data(rows.filter(r => lab.has(r.code))).join("text")
+    .attr("class", r => r.code === SEL ? "lbl-strong" : "lbl").attr("x", r => x(r.alertes_10k) + 8).attr("y", r => y(r.sites_100k)).attr("dy", "0.35em")
+    .text(r => r.nom).style("pointer-events", "none");
+  // survol : point le plus proche (cible plus large que la marque)
+  const del = d3.Delaunay.from(rows, r => x(r.alertes_10k), r => y(r.sites_100k));
+  g.append("rect").attr("width", w).attr("height", h).attr("fill", "transparent").style("cursor", "pointer")
+    .on("mousemove", ev => { const [px, py] = d3.pointer(ev), r = rows[del.find(px, py)];
+      if (Math.hypot(x(r.alertes_10k) - px, y(r.sites_100k) - py) > 24) { setHover(null); return hideTip(); }
+      setHover(r.code); depTip(ev, r); })
+    .on("mouseleave", () => { setHover(null); hideTip(); })
+    .on("click", ev => { const [px, py] = d3.pointer(ev), r = rows[del.find(px, py)];
+      if (Math.hypot(x(r.alertes_10k) - px, y(r.sites_100k) - py) <= 24) select(r.code); });
+  scatterHover = () => scatterDots.attr("stroke", r => r.code === HOVER ? "var(--ink)" : "var(--surface)").filter(r => r.code === HOVER).raise();
+}
+
+// ---------- histogramme des délais ----------
+function renderHist() {
+  const all = sitesOp(), cur = (SEL ? all.filter(s => s.dep === SEL) : all).filter(s => LIVRES.includes(s.statut));
+  d3.select("#n-hist").text(`${fr(cur.length)} sites livrés${SEL ? " dans ce département" : ""}, par tranche de 3 mois.` + (SEL ? " Le trait gris montre la répartition France (même échelle en %)." : ""));
+  const m = { t: 16, r: 12, b: 34, l: 40 }, { g, w, h } = frame("#c-hist", 560, 280, m);
+  const maxM = 84, binsOf = arr => d3.range(0, maxM, 3).map(x0 => { const b = { x0 }; LIVRES.forEach(k => b[k] = 0);
+    arr.forEach(s => { if (Math.min(maxM - 3, Math.floor(mid(s) / 3) * 3) === x0) b[s.statut]++; }); return b; });
+  const bins = binsOf(cur), x = d3.scaleLinear([0, maxM], [0, w]);
+  const y = d3.scaleLinear([0, d3.max(bins, b => d3.sum(LIVRES, k => b[k])) || 1], [h, 0]).nice();
+  g.append("g").attr("class", "axis gridl").call(d3.axisLeft(y).ticks(5).tickSize(-w).tickFormat(fr)).call(s => s.select(".domain").remove());
+  g.append("g").attr("class", "axis").attr("transform", `translate(0,${h})`).call(d3.axisBottom(x).tickValues(d3.range(0, maxM + 1, 12)).tickSizeOuter(0));
+  g.append("text").attr("x", w).attr("y", h + 30).attr("text-anchor", "end").text("mois après l'arrêté");
+  d3.stack().keys(LIVRES)(bins).forEach((layer, li) => g.append("g").selectAll("rect").data(layer).join("rect")
+    .attr("x", d => x(d.data.x0) + 1).attr("width", x(3) - x(0) - 2)
+    .attr("y", d => y(d[1]) + (li ? 1 : 0)).attr("height", d => Math.max(0, y(d[0]) - y(d[1]) - (li ? 1 : 0))).attr("fill", `var(${ST[LIVRES[li]][1]})`));
+  if (SEL) { // référence nationale, ramenée au même effectif
+    const ref = binsOf(all.filter(s => LIVRES.includes(s.statut))), tot = d3.sum(ref, b => d3.sum(LIVRES, k => b[k])), f = cur.length / tot;
+    g.append("path").attr("fill", "none").attr("stroke", "var(--ink-2)").attr("stroke-width", 1.5)
+      .attr("d", d3.line().curve(d3.curveStepAfter).x(b => x(b.x0)).y(b => y(d3.sum(LIVRES, k => b[k]) * f))([...ref, { ...ref[ref.length - 1], x0: maxM }]));
+  }
+  g.append("line").attr("x1", x(PROMIS)).attr("x2", x(PROMIS)).attr("y1", -4).attr("y2", h).attr("stroke", "var(--ink)").attr("stroke-dasharray", "4 3");
+  g.append("text").attr("x", x(PROMIS) + 6).attr("y", 6).attr("class", "lbl-strong").text("promesse : 24 mois");
+  g.selectAll(".hit").data(bins).join("rect").attr("x", b => x(b.x0)).attr("width", x(3) - x(0)).attr("height", h).attr("fill", "transparent")
+    .on("mousemove", (ev, b) => showTip(ev, `${b.x0} à ${b.x0 + 3} mois`, LIVRES.map(k => ({ k: ST[k][0], c: ST[k][1], v: fr(b[k]) })).filter(r => r.v !== "0")))
+    .on("mouseleave", hideTip);
+}
+
+// ---------- tableau ----------
+function renderTable() {
+  const rows = d3.sort(sitesOp().filter(s => s.statut === "attente_retard" && (!SEL || s.dep === SEL)), s => -s.attente_mois);
+  d3.select("#n-table").text(`${fr(rows.length)} site${rows.length > 1 ? "s" : ""}${SEL ? " dans ce département" : " en France"}, du plus ancien au plus récent.`);
+  if (!rows.length) return d3.select("#c-table").html(`<div class="empty">Aucun site en attente au-delà de 24 mois.</div>`);
+  d3.select("#c-table").html(`<table><thead><tr><th>Zone</th>${SEL ? "" : "<th>Dép.</th>"}<th>Opérateur leader</th><th class="num">Arrêté</th><th class="num">Attente</th></tr></thead><tbody>` +
+    rows.map(s => `<tr><td>${s.zone || "Site n° " + s.id}</td>${SEL ? "" : `<td>${s.dep || "?"}</td>`}<td>${s.op}</td><td class="num">${s.arrete.split("-").reverse().join("/")}</td><td class="num">${Math.round(s.attente_mois)} mois</td></tr>`).join("") + "</tbody></table>");
+}
+
+function renderAll() {
+  tiles(); renderMap(); renderScatter(); renderHist(); renderTable();
+  d3.select("#h-detail").text(SEL ? `Détail : ${NOM[SEL]}` : "Détail : France métropolitaine");
+}
+renderAll();
+</script>
+</body>
+</html>
